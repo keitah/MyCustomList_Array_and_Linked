@@ -1,52 +1,64 @@
-import java.util.InputMismatchException;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
 import java.util.Scanner;
 
-public class MyCustomLinkedList<E> {
+public class MyCustomLinkedList<T> implements Iterable<T> {
 
-    private Node<E> head;
-    private Node<E> tail;
-    private int size;
+    private static class Node<T> {
+        T value;
+        Node<T> next;
+        Node<T> prev;
 
-    private static class Node<E> {
-        E data;
-        Node<E> next;
-        Node<E> prev;
-
-        Node(E data) {
-            this.data = data;
+        Node(T value) {
+            this.value = value;
         }
     }
 
-    // Добавление в конец
-    public void add(E element) {
-        Node<E> newNode = new Node<>(element);
+    private Node<T> head;
+    private Node<T> tail;
+    private int size;
+
+    public void add(T value) {
+        Node<T> newNode = new Node<>(value);
         if (head == null) {
-            head = tail = newNode;
+            head = newNode;
         } else {
             tail.next = newNode;
             newNode.prev = tail;
-            tail = newNode;
         }
+        tail = newNode;
         size++;
     }
 
-    // Добавление в начало
-    public void addFirst(E element) {
-        Node<E> newNode = new Node<>(element);
-        if (head == null) {
-            head = tail = newNode;
-        } else {
-            newNode.next = head;
-            head.prev = newNode;
+    public void add(int index, T value) {
+        if (index < 0 || index > size) throw new IndexOutOfBoundsException();
+        Node<T> newNode = new Node<>(value);
+        if (index == size) { // вставка в конец
+            add(value);
+            return;
+        }
+        Node<T> current = getNode(index);
+        Node<T> prev = current.prev;
+
+        newNode.next = current;
+        newNode.prev = prev;
+        current.prev = newNode;
+
+        if (prev == null) {
             head = newNode;
+        } else {
+            prev.next = newNode;
         }
         size++;
     }
 
-    // Получение по индексу
-    public E get(int index) {
-        checkIndex(index);
-        Node<E> current;
+    public T get(int index) {
+        return getNode(index).value;
+    }
+
+    private Node<T> getNode(int index) {
+        if (index < 0 || index >= size) throw new IndexOutOfBoundsException();
+        Node<T> current;
         if (index < size / 2) {
             current = head;
             for (int i = 0; i < index; i++) current = current.next;
@@ -54,128 +66,173 @@ public class MyCustomLinkedList<E> {
             current = tail;
             for (int i = size - 1; i > index; i--) current = current.prev;
         }
-        return current.data;
+        return current;
     }
 
-    // Удаление по индексу
-    public E remove(int index) {
-        checkIndex(index);
-        Node<E> toRemove;
-        if (index == 0) {
-            toRemove = head;
-            head = head.next;
-            if (head != null) head.prev = null;
-            else tail = null;
-        } else if (index == size - 1) {
-            toRemove = tail;
-            tail = tail.prev;
-            if (tail != null) tail.next = null;
-            else head = null;
-        } else {
-            toRemove = head;
-            for (int i = 0; i < index; i++) toRemove = toRemove.next;
-            toRemove.prev.next = toRemove.next;
-            toRemove.next.prev = toRemove.prev;
-        }
+    public void remove(int index) {
+        Node<T> target = getNode(index);
+        Node<T> prev = target.prev;
+        Node<T> next = target.next;
+
+        if (prev == null) head = next;
+        else prev.next = next;
+
+        if (next == null) tail = prev;
+        else next.prev = prev;
+
         size--;
-        return toRemove.data;
     }
 
-    private void checkIndex(int index) {
-        if (index < 0 || index >= size)
-            throw new IndexOutOfBoundsException("Index: " + index + ", Size: " + size);
+    public int indexOf(T value) {
+        Node<T> current = head;
+        int i = 0;
+        while (current != null) {
+            if (current.value.equals(value)) return i;
+            current = current.next;
+            i++;
+        }
+        return -1;
     }
 
     public int size() {
         return size;
     }
 
-    public boolean isEmpty() {
-        return size == 0;
-    }
-
     @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder("[");
-        Node<E> current = head;
-        while (current != null) {
-            sb.append(current.data);
-            if (current.next != null) sb.append(", ");
-            current = current.next;
-        }
-        sb.append("]");
-        return sb.toString();
+    public Iterator<T> iterator() {
+        return new Iterator<T>() {
+            private Node<T> current = head;
+            private Node<T> lastRet = null;
+
+            @Override
+            public boolean hasNext() {
+                return current != null;
+            }
+
+            @Override
+            public T next() {
+                if (!hasNext()) throw new NoSuchElementException();
+                lastRet = current;
+                current = current.next;
+                return lastRet.value;
+            }
+
+            @Override
+            public void remove() {
+                if (lastRet == null) throw new IllegalStateException();
+
+                Node<T> prev = lastRet.prev;
+                Node<T> next = lastRet.next;
+
+                if (prev == null) head = next;
+                else prev.next = next;
+
+                if (next == null) tail = prev;
+                else next.prev = prev;
+
+                size--;
+                lastRet = null;
+            }
+        };
     }
 
-    // Запуск с безопасным вводом
+    // 🔹 Меню
     public static void main(String[] args) {
-        MyCustomLinkedList<String> list = new MyCustomLinkedList<>();
         Scanner scanner = new Scanner(System.in);
+        MyCustomLinkedList<String> list = new MyCustomLinkedList<>();
 
         while (true) {
             System.out.println("\nМеню:");
             System.out.println("1 - Добавить в конец");
-            System.out.println("2 - Добавить в начало");
+            System.out.println("2 - Добавить по индексу");
             System.out.println("3 - Показать список");
             System.out.println("4 - Получить по индексу");
             System.out.println("5 - Удалить по индексу");
+            System.out.println("6 - Найти элемент");
+            System.out.println("7 - Показать с помощью итератора");
+            System.out.println("8 - Удалить элемент через итератор");
             System.out.println("0 - Выход");
             System.out.print("Выберите действие: ");
 
-            int choice;
-            try {
-                choice = scanner.nextInt();
-                scanner.nextLine(); // очистка буфера
-            } catch (InputMismatchException e) {
-                System.out.println("Ошибка: введите число!");
-                scanner.nextLine();
-                continue;
-            }
+            String choice = scanner.nextLine();
 
-            switch (choice) {
-                case 1:
-                    System.out.print("Введите элемент: ");
-                    list.add(scanner.nextLine());
-                    break;
-                case 2:
-                    System.out.print("Введите элемент: ");
-                    list.addFirst(scanner.nextLine());
-                    break;
-                case 3:
-                    System.out.println("Список: " + list);
-                    break;
-                case 4:
-                    System.out.print("Введите индекс: ");
-                    try {
-                        int idxGet = scanner.nextInt();
-                        scanner.nextLine();
-                        System.out.println("Элемент: " + list.get(idxGet));
-                    } catch (InputMismatchException e) {
-                        System.out.println("Ошибка: индекс должен быть числом!");
-                        scanner.nextLine();
-                    } catch (IndexOutOfBoundsException e) {
-                        System.out.println("Ошибка: индекс вне диапазона!");
+            try {
+                switch (choice) {
+                    case "1" -> {
+                        System.out.print("Введите элемент: ");
+                        String el = scanner.nextLine();
+                        list.add(el);
                     }
-                    break;
-                case 5:
-                    System.out.print("Введите индекс: ");
-                    try {
-                        int idxRemove = scanner.nextInt();
-                        scanner.nextLine();
-                        System.out.println("Удален: " + list.remove(idxRemove));
-                    } catch (InputMismatchException e) {
-                        System.out.println("Ошибка: индекс должен быть числом!");
-                        scanner.nextLine();
-                    } catch (IndexOutOfBoundsException e) {
-                        System.out.println("Ошибка: индекс вне диапазона!");
+                    case "2" -> {
+                        System.out.print("Введите индекс: ");
+                        int idx = Integer.parseInt(scanner.nextLine());
+                        System.out.print("Введите элемент: ");
+                        String el = scanner.nextLine();
+                        list.add(idx, el);
                     }
-                    break;
-                case 0:
-                    System.out.println("Выход...");
-                    scanner.close();
-                    return;
-                default:
-                    System.out.println("Неверный выбор!");
+                    case "3" -> {
+                        System.out.println("Список:");
+                        for (String s : list) {
+                            System.out.println(s);
+                        }
+                    }
+                    case "4" -> {
+                        System.out.print("Введите индекс: ");
+                        int idx = Integer.parseInt(scanner.nextLine());
+                        System.out.println("Элемент: " + list.get(idx));
+                    }
+                    case "5" -> {
+                        System.out.print("Введите индекс: ");
+                        int idx = Integer.parseInt(scanner.nextLine());
+                        list.remove(idx);
+                    }
+                    case "6" -> {
+                        System.out.print("Введите элемент: ");
+                        String el = scanner.nextLine();
+                        int pos = list.indexOf(el);
+                        if (pos >= 0) {
+                            System.out.println("Элемент найден по индексу: " + pos);
+                        } else {
+                            System.out.println("Элемент не найден");
+                        }
+                    }
+                    case "7" -> {
+                        System.out.println("Обход итератором:");
+                        Iterator<String> it = list.iterator();
+                        while (it.hasNext()) {
+                            System.out.println(it.next());
+                        }
+                    }
+                    case "8" -> {
+                        System.out.print("Введите элемент для удаления через итератор: ");
+                        String target = scanner.nextLine();
+                        Iterator<String> it = list.iterator();
+                        boolean removed = false;
+                        while (it.hasNext()) {
+                            if (it.next().equals(target)) {
+                                it.remove();
+                                removed = true;
+                                break;
+                            }
+                        }
+                        if (removed) {
+                            System.out.println("Удалено.");
+                        } else {
+                            System.out.println("Элемент не найден.");
+                        }
+                    }
+                    case "0" -> {
+                        System.out.println("Выход...");
+                        return;
+                    }
+                    default -> System.out.println("Неверный выбор!");
+                }
+            } catch (IndexOutOfBoundsException e) {
+                System.out.println("Ошибка: индекс вне диапазона!");
+            } catch (NumberFormatException e) {
+                System.out.println("Ошибка: ожидалось число!");
+            } catch (Exception e) {
+                System.out.println("Ошибка: " + e.getMessage());
             }
         }
     }
